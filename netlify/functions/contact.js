@@ -42,20 +42,24 @@ exports.handler = async (event) => {
     return reply(400, { error: "Message is too long." });
   }
 
-  // 3. Save to the database
-  const key = process.env.SUPABASE_SERVICE_KEY;
-  const dbRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/messages`, {
-    method: "POST",
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-      Prefer: "return=minimal",
-    },
-    body: JSON.stringify({ name, email, subject, message }),
-  });
-  if (!dbRes.ok) return reply(500, { error: "Could not save your message." });
-
+      // 3. Save to the database
+     const key = process.env.SUPABASE_SERVICE_KEY || "";
+     const dbHeaders = {
+       apikey: key,
+       "Content-Type": "application/json",
+       Prefer: "return=minimal",
+     };
+     if (key.startsWith("eyJ")) dbHeaders.Authorization = `Bearer ${key}`; // old-style keys only
+     const dbRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/messages`, {
+       method: "POST",
+       headers: dbHeaders,
+       body: JSON.stringify({ name, email, subject, message }),
+     });
+     if (!dbRes.ok) {
+       console.log("Supabase error:", dbRes.status, await dbRes.text());
+       return reply(500, { error: "Could not save your message." });
+     }
+  
   // 4. Email notification (if this fails, the message is still saved)
   try {
     await fetch("https://api.resend.com/emails", {
